@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Progress Inc</title>
+    <style>
+      :root {
+        --bg: #000000;
+        --text: #ffffff;
+        --card-bg: rgba(255, 255, 255, 0.04);
+        --border: rgba(255, 255, 255, 0.12);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html, body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font-family: Arial, Helvetica, sans-serif;
+      }
+
+      body {
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        overflow: hidden;
+      }
+
+      #app {
+        width: min(90vw, 900px);
+        padding: 24px 18px 28px;
+      }
+
+      #progressStack {
+        display: flex;
+        flex-direction: column-reverse;
+        gap: 12px;
+        width: 100%;
+      }
+
+      .bar-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 10px 12px 12px;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+      }
+
+      .bar-label {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        margin-bottom: 8px;
+        font-weight: 700;
+      }
+
+      .track {
+        position: relative;
+        width: 100%;
+        height: 18px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.09);
+        overflow: hidden;
+      }
+
+      .fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0%;
+        border-radius: inherit;
+        transition: width 0.04s linear;
+      }
+
+      .glow {
+        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8), 0 0 18px rgba(255, 255, 255, 0.5);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="progressStack"></div>
+    </div>
+
+    <script>
+      const stageNames = [
+        { name: 'Priming', goal: 3, color: '#ff3b30', text: '#ffffff' },
+        { name: 'Secondarying', goal: 4, color: '#ff8c1a', text: '#ffffff' },
+        { name: 'Ternarying', goal: 5, color: '#ffd633', text: '#111111' },
+        { name: 'Quaternarying', goal: 6, color: '#7adf72', text: '#09130a' },
+        { name: 'Quinarying', goal: 7, color: '#45d0ff', text: '#06161d' },
+        { name: 'Senarying', goal: 8, color: '#7a79ff', text: '#ffffff' },
+        { name: 'Septenarying', goal: 9, color: '#ff6fd8', text: '#1d0919' },
+        { name: 'Octonarying', goal: 10, color: '#ffa17a', text: '#1c100d' },
+        { name: 'Nonarying', goal: 11, color: '#9df8d9', text: '#061612' },
+        { name: 'Prestiging', goal: 1, color: '#ffffff', text: '#000000', glow: true }
+      ];
+
+      const state = {
+        stageIndex: 0,
+        cycleCount: 0,
+        progress: 0,
+        speedBoost: 1,
+        history: [],
+        timer: null
+      };
+
+      const stack = document.getElementById('progressStack');
+
+      function buildBarCard(config, count, percent, isActive = false) {
+        const card = document.createElement('div');
+        card.className = 'bar-card';
+
+        const label = document.createElement('div');
+        label.className = 'bar-label';
+
+        const title = document.createElement('span');
+        title.textContent = `${config.name}... (${count}/${config.goal})`;
+        title.style.color = config.text;
+
+        const meta = document.createElement('span');
+        meta.textContent = isActive ? 'live' : 'done';
+        meta.style.opacity = '0.7';
+        meta.style.color = config.text;
+
+        label.appendChild(title);
+        label.appendChild(meta);
+
+        const track = document.createElement('div');
+        track.className = 'track';
+
+        const fill = document.createElement('div');
+        fill.className = 'fill';
+        fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
+        fill.style.background = config.color;
+        if (config.glow) fill.classList.add('glow');
+
+        track.appendChild(fill);
+        card.appendChild(label);
+        card.appendChild(track);
+        return card;
+      }
+
+      function render() {
+        stack.innerHTML = '';
+
+        state.history.forEach((item) => {
+          stack.appendChild(buildBarCard(item, item.goal, 100, false));
+        });
+
+        const activeConfig = stageNames[state.stageIndex];
+        const activePercent = (state.progress * 100);
+        const activeCount = state.cycleCount;
+        stack.appendChild(buildBarCard(activeConfig, activeCount, activePercent, true));
+      }
+
+      function clearCurrentTimer() {
+        if (state.timer) {
+          clearInterval(state.timer);
+          state.timer = null;
+        }
+      }
+
+      function startStage() {
+        clearCurrentTimer();
+
+        const config = stageNames[state.stageIndex];
+        const durationMs = state.stageIndex === 0 ? (2000 / state.speedBoost) : 2000;
+
+        state.timer = setInterval(() => {
+          state.progress += 50 / durationMs;
+
+          if (state.progress >= 1) {
+            state.cycleCount += 1;
+            state.progress = 0;
+
+            if (state.cycleCount >= config.goal) {
+              state.history.push({
+                name: config.name,
+                goal: config.goal,
+                color: config.color,
+                text: config.text,
+                glow: !!config.glow
+              });
+
+              if (state.stageIndex === stageNames.length - 1) {
+                state.history = [];
+                state.stageIndex = 0;
+                state.cycleCount = 0;
+                state.speedBoost += 1;
+                render();
+                startStage();
+                return;
+              }
+
+              state.stageIndex += 1;
+              state.cycleCount = 0;
+              render();
+              startStage();
+              return;
+            }
+          }
+
+          render();
+        }, 50);
+      }
+
+      render();
+      startStage();
+    </script>
+  </body>
+</html>
