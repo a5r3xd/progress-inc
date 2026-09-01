@@ -8,8 +8,7 @@
       :root {
         --bg: #000000;
         --text: #ffffff;
-        --card-bg: rgba(255, 255, 255, 0.04);
-        --border: rgba(255, 255, 255, 0.12);
+        --track: rgba(255, 255, 255, 0.08);
       }
 
       * {
@@ -30,46 +29,62 @@
         align-items: flex-end;
         justify-content: center;
         overflow: hidden;
+        background: #000;
       }
 
       #app {
-        width: min(90vw, 900px);
-        padding: 24px 18px 28px;
+        width: min(92vw, 920px);
+        padding: 18px 18px 18px;
+      }
+
+      #multiplier {
+        position: fixed;
+        top: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        font-size: 1.15rem;
+        font-weight: 900;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: #ffffff;
+        background: rgba(255,255,255,0.06);
+        border: 1px solid rgba(255,255,255,0.16);
+        border-radius: 999px;
+        padding: 8px 16px;
+        box-shadow: 0 0 12px rgba(255,255,255,0.12);
       }
 
       #progressStack {
         display: flex;
         flex-direction: column-reverse;
-        gap: 12px;
-        width: 100%;
+        justify-content: flex-start;
+        align-items: stretch;
+        gap: 10px;
+        min-height: calc(100vh - 48px);
+        padding-bottom: 18px;
       }
 
       .bar-card {
-        background: rgba(255, 255, 255, 0.02);
-        border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 10px 12px 12px;
-        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.02);
+        width: 100%;
+        opacity: 0.96;
       }
 
       .bar-label {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.8rem;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
         margin-bottom: 8px;
         font-weight: 700;
+        font-size: 0.82rem;
+        letter-spacing: 0.07em;
+        text-transform: uppercase;
       }
 
       .track {
         position: relative;
         width: 100%;
-        height: 18px;
+        height: 20px;
+        background: var(--track);
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.09);
         overflow: hidden;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,0.06);
       }
 
       .fill {
@@ -77,62 +92,73 @@
         inset: 0 auto 0 0;
         width: 0%;
         border-radius: inherit;
-        transition: width 0.04s linear;
+        transition: width 0.05s linear;
       }
 
       .glow {
-        box-shadow: 0 0 8px rgba(255, 255, 255, 0.8), 0 0 18px rgba(255, 255, 255, 0.5);
+        box-shadow: 0 0 12px rgba(255,255,255,0.9), 0 0 26px rgba(255,255,255,0.45);
       }
     </style>
   </head>
   <body>
     <div id="app">
+      <div id="multiplier">x1</div>
       <div id="progressStack"></div>
     </div>
 
     <script>
-      const stageNames = [
+      const stages = [
         { name: 'Priming', goal: 3, color: '#ff3b30', text: '#ffffff' },
         { name: 'Secondarying', goal: 4, color: '#ff8c1a', text: '#ffffff' },
-        { name: 'Ternarying', goal: 5, color: '#ffd633', text: '#111111' },
-        { name: 'Quaternarying', goal: 6, color: '#7adf72', text: '#09130a' },
-        { name: 'Quinarying', goal: 7, color: '#45d0ff', text: '#06161d' },
-        { name: 'Senarying', goal: 8, color: '#7a79ff', text: '#ffffff' },
-        { name: 'Septenarying', goal: 9, color: '#ff6fd8', text: '#1d0919' },
-        { name: 'Octonarying', goal: 10, color: '#ffa17a', text: '#1c100d' },
-        { name: 'Nonarying', goal: 11, color: '#9df8d9', text: '#061612' },
+        { name: 'Ternarying', goal: 5, color: '#ffd633', text: '#ffffff' },
+        { name: 'Quaternarying', goal: 6, color: '#69da61', text: '#ffffff' },
+        { name: 'Quinarying', goal: 7, color: '#45c8ff', text: '#ffffff' },
+        { name: 'Senarying', goal: 8, color: '#7678ff', text: '#ffffff' },
+        { name: 'Septenarying', goal: 9, color: '#ff70d2', text: '#ffffff' },
+        { name: 'Octonarying', goal: 10, color: '#ff9a6d', text: '#ffffff' },
+        { name: 'Nonarying', goal: 11, color: '#9ff5d4', text: '#ffffff' },
         { name: 'Prestiging', goal: 1, color: '#ffffff', text: '#000000', glow: true }
       ];
 
       const state = {
-        stageIndex: 0,
-        cycleCount: 0,
-        progress: 0,
-        speedBoost: 1,
-        history: [],
+        values: Array(stages.length).fill(0),
+        highestVisible: 0,
+        currentStage: 0,
+        stageProgress: 0,
+        multiplier: 1,
+        primingBoost: 1,
         timer: null
       };
 
       const stack = document.getElementById('progressStack');
+      const multiplierLabel = document.getElementById('multiplier');
 
-      function buildBarCard(config, count, percent, isActive = false) {
+      function setMultiplierText() {
+        multiplierLabel.textContent = `x${state.multiplier}`;
+      }
+
+      function getPrimingMultiplier() {
+        const unlockedBoostStages = Math.max(0, state.highestVisible - 1);
+        return state.multiplier * Math.pow(3, unlockedBoostStages);
+      }
+
+      function updateHighestVisible() {
+        state.highestVisible = Math.max(state.highestVisible, state.currentStage);
+        for (let i = 0; i <= state.highestVisible; i++) {
+          if (state.values[i] > 0 || i === 0) {
+            state.highestVisible = Math.max(state.highestVisible, i);
+          }
+        }
+      }
+
+      function buildBarCard(stage, count, percent) {
         const card = document.createElement('div');
         card.className = 'bar-card';
 
         const label = document.createElement('div');
         label.className = 'bar-label';
-
-        const title = document.createElement('span');
-        title.textContent = `${config.name}... (${count}/${config.goal})`;
-        title.style.color = config.text;
-
-        const meta = document.createElement('span');
-        meta.textContent = isActive ? 'live' : 'done';
-        meta.style.opacity = '0.7';
-        meta.style.color = config.text;
-
-        label.appendChild(title);
-        label.appendChild(meta);
+        label.textContent = `${stage.name}... (${count}/${stage.goal})`;
+        label.style.color = stage.text;
 
         const track = document.createElement('div');
         track.className = 'track';
@@ -140,8 +166,8 @@
         const fill = document.createElement('div');
         fill.className = 'fill';
         fill.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-        fill.style.background = config.color;
-        if (config.glow) fill.classList.add('glow');
+        fill.style.background = stage.color;
+        if (stage.glow) fill.classList.add('glow');
 
         track.appendChild(fill);
         card.appendChild(label);
@@ -151,62 +177,69 @@
 
       function render() {
         stack.innerHTML = '';
+        setMultiplierText();
 
-        state.history.forEach((item) => {
-          stack.appendChild(buildBarCard(item, item.goal, 100, false));
-        });
-
-        const activeConfig = stageNames[state.stageIndex];
-        const activePercent = (state.progress * 100);
-        const activeCount = state.cycleCount;
-        stack.appendChild(buildBarCard(activeConfig, activeCount, activePercent, true));
-      }
-
-      function clearCurrentTimer() {
-        if (state.timer) {
-          clearInterval(state.timer);
-          state.timer = null;
+        for (let i = 0; i <= state.highestVisible; i++) {
+          const stage = stages[i];
+          const count = state.values[i];
+          const percent = i === 0 ? state.stageProgress * 100 : (count / stage.goal) * 100;
+          stack.appendChild(buildBarCard(stage, count, percent));
         }
       }
 
-      function startStage() {
-        clearCurrentTimer();
+      function propagateProgress(index) {
+        if (index >= stages.length) {
+          state.values = Array(stages.length).fill(0);
+          state.currentStage = 0;
+          state.highestVisible = 0;
+          state.multiplier += 1;
+          state.primingBoost = 1;
+          state.stageProgress = 0;
+          render();
+          startStage();
+          return;
+        }
 
-        const config = stageNames[state.stageIndex];
-        const durationMs = state.stageIndex === 0 ? (2000 / state.speedBoost) : 2000;
+        state.values[index] += 1;
+        state.highestVisible = Math.max(state.highestVisible, index);
+
+        if (state.values[index] >= stages[index].goal) {
+          state.values[index] = 0;
+          if (index === stages.length - 1) {
+            propagateProgress(index + 1);
+            return;
+          }
+          propagateProgress(index + 1);
+        }
+      }
+
+      function completePriming() {
+        state.values[0] += 1;
+        state.highestVisible = Math.max(state.highestVisible, 0);
+
+        if (state.values[0] >= stages[0].goal) {
+          state.values[0] = 0;
+          propagateProgress(1);
+        }
+
+        state.stageProgress = 0;
+        render();
+        startStage();
+      }
+
+      function startStage() {
+        if (state.timer) clearInterval(state.timer);
+
+        const primingSpeed = 2000 / getPrimingMultiplier();
 
         state.timer = setInterval(() => {
-          state.progress += 50 / durationMs;
+          state.stageProgress += 50 / primingSpeed;
 
-          if (state.progress >= 1) {
-            state.cycleCount += 1;
-            state.progress = 0;
-
-            if (state.cycleCount >= config.goal) {
-              state.history.push({
-                name: config.name,
-                goal: config.goal,
-                color: config.color,
-                text: config.text,
-                glow: !!config.glow
-              });
-
-              if (state.stageIndex === stageNames.length - 1) {
-                state.history = [];
-                state.stageIndex = 0;
-                state.cycleCount = 0;
-                state.speedBoost += 1;
-                render();
-                startStage();
-                return;
-              }
-
-              state.stageIndex += 1;
-              state.cycleCount = 0;
-              render();
-              startStage();
-              return;
-            }
+          if (state.stageProgress >= 1) {
+            clearInterval(state.timer);
+            state.timer = null;
+            completePriming();
+            return;
           }
 
           render();
